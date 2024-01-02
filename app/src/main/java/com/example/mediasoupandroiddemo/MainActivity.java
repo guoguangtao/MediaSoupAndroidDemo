@@ -1,6 +1,7 @@
 package com.example.mediasoupandroiddemo;
 
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -8,10 +9,18 @@ import androidx.appcompat.app.AppCompatActivity;
 import org.json.JSONObject;
 import org.mediasoup.droid.Device;
 import org.mediasoup.droid.MediasoupClient;
+import org.mediasoup.droid.RecvTransport;
+import org.mediasoup.droid.Transport;
 import org.protoojs.droid.Message;
 import org.protoojs.droid.transports.AbsWebSocketTransport;
 
 public class MainActivity extends AppCompatActivity {
+
+    private final long GETROUTERRTPCAPABILITIESREQUESTID = 1000;
+
+    private final long CREATEWEBRTCTRANSPORTREQUESTID = 10001;
+
+    private final long JOINROOMREQUESTID = 10002;
 
     private final String TAG = "YXC_MainActivity";
 
@@ -43,7 +52,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onMessage(Message message) {
 
-                Log.i(TAG, "WebSocket receiver message : " + message.toString());
                 if (message instanceof Message.Response) {
                     handleResponse((Message.Response) message);
                 } else if (message instanceof Message.Request) {
@@ -72,6 +80,8 @@ public class MainActivity extends AppCompatActivity {
 
         try {
             JSONObject request = Message.createRequest("getRouterRtpCapabilities", new JSONObject());
+            // 修改 requestId
+            request.put("id", GETROUTERRTPCAPABILITIESREQUESTID);
             Log.i(TAG, "Join room : " + request);
             mSocketTransport.sendMessage(request);
         } catch (Exception e) {
@@ -84,8 +94,17 @@ public class MainActivity extends AppCompatActivity {
     private void handleResponse(Message.Response response) {
         if (response.isOK()) {
             // 请求成功
-            String routerRtpCapabilities = response.getData().toString();
-            setupDevice(routerRtpCapabilities);
+            String jsonString = response.getData().toString();
+            long requestId = response.getId();
+            if (requestId == GETROUTERRTPCAPABILITIESREQUESTID) {
+                // getRouterRtpCapabilities
+                setupDevice(jsonString);
+                sendCreateReceiverTransport();
+                joinRoom();
+            } else if (requestId == CREATEWEBRTCTRANSPORTREQUESTID) {
+                // createWebRtcTransport
+                createReceiverTransport(jsonString);
+            }
         } else {
             // 请求失败
             Log.i(TAG, "errorCode : " + response.getErrorCode() + " errorReason : " + response.getErrorReason());
@@ -98,12 +117,69 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupDevice(String routerRtpCapabilities) {
         try {
-            Log.i(TAG, "routerRtpCapabilities : " + routerRtpCapabilities);
             mMediaSoupDevice = new Device();
             mMediaSoupDevice.load(routerRtpCapabilities, null);
-            Log.i(TAG, "Rtp : " + mMediaSoupDevice.getRtpCapabilities());
         } catch (Exception e) {
             Log.w(TAG, "Setup device exception : " + e);
         }
+    }
+
+    private void sendCreateReceiverTransport() {
+        try {
+            JSONObject request = Message.createRequest("createWebRtcTransport", new JSONObject());
+            request.put("id", CREATEWEBRTCTRANSPORTREQUESTID);
+            request.put("forceTcp", false);
+            request.put("producing", false);
+            request.put("consuming", true);
+            Log.i(TAG, "sendCreateReceiverTransport : " + request);
+            mSocketTransport.sendMessage(request);
+        } catch (Exception e) {
+            Log.e(TAG, "sendCreateReceiverTransport exception : " + e);
+        }
+
+    }
+
+    private void createReceiverTransport(String jsonString) {
+        try {
+            JSONObject info = new JSONObject(jsonString);
+            String id = info.optString("id");
+            String iceParameters = info.optString("iceParameters");
+            String iceCandidates = info.optString("iceCandidates");
+            String dtlsParameters = info.optString("dtlsParameters");
+            String sctpParameters = info.optString("sctpParameters");
+            if (TextUtils.isEmpty(sctpParameters)) {
+                sctpParameters = null;
+            }
+            Log.i(TAG, "createReceiverTransport");
+            mMediaSoupDevice.createRecvTransport(new RecvTransport.Listener() {
+                @Override
+                public void onConnect(Transport transport, String dtlsParameters) {
+                    Log.i(TAG, "createReceiverTransport onConnect : " + dtlsParameters);
+                }
+
+                @Override
+                public void onConnectionStateChange(Transport transport, String connectionState) {
+                    Log.i(TAG, "createReceiverTransport onConnectionStateChange : " + connectionState);
+                }
+            }, id, iceParameters, iceCandidates, dtlsParameters, sctpParameters);
+        } catch (Exception e) {
+            Log.e(TAG, "createReceiverTransport exception : " + e);
+        }
+    }
+
+    private void joinRoom() {
+        try {
+            JSONObject request = Message.createRequest("join", new JSONObject());
+            request.put("id", JOINROOMREQUESTID);
+            request.put("displayName", "ggt");
+            String rtpCapabilities = mMediaSoupDevice.getRtpCapabilities();
+            if (!TextUtils.isEmpty(rtpCapabilities)) {
+                request.put("rtpCapabilities", new JSONObject(rtpCapabilities));
+            }
+            mSocketTransport.sendMessage(request);
+        } catch (Exception e) {
+            Log.e(TAG, "join room exception : " + e);
+        }
+
     }
 }
