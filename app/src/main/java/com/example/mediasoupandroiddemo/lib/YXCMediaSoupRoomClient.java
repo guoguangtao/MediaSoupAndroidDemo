@@ -41,6 +41,10 @@ public class YXCMediaSoupRoomClient {
 
     private YXCWebSocketTransport mWebSocketTransport;
 
+    private YXCPeer mPeer;
+
+//    private Protoo mProtoo;
+
     public YXCMediaSoupRoomClient(Context context, String roomId, String userId
             , SurfaceViewRenderer remoteView) {
         mRoomId = roomId;
@@ -65,38 +69,41 @@ public class YXCMediaSoupRoomClient {
         String url = String.format(Locale.US, "%s/?roomId=%s&peerId=%s", mWebSocketUrl
                 , mRoomId, mUserId);
         Log.i(TAG, "连接 WebSocket : " + url);
-        mWorkHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                mWebSocketTransport = new YXCWebSocketTransport(url);
-                mWebSocketTransport.connect(new AbsWebSocketTransport.Listener() {
-                    @Override
-                    public void onOpen() {
-                        Log.i(TAG, "WebSocket did open");
-                        joinRoom();
-                    }
+        mWorkHandler.post(() -> {
+            mWebSocketTransport = new YXCWebSocketTransport(url);
 
-                    @Override
-                    public void onFail() {
-                        Log.i(TAG, "WebSocket failed");
-                    }
+            mPeer = new YXCPeer(mWebSocketTransport, new Peer.Listener() {
+                @Override
+                public void onOpen() {
+                    Log.i(TAG, "WebSocket did open");
+                    mWorkHandler.post(() -> joinRoom());
+                }
 
-                    @Override
-                    public void onMessage(Message message) {
-                        Log.i(TAG, "WebSocket receiver message : " + message.toString());
-                    }
+                @Override
+                public void onFail() {
+                    Log.i(TAG, "WebSocket failed");
+                }
 
-                    @Override
-                    public void onDisconnected() {
-                        Log.i(TAG, "WebSocket disconnected");
-                    }
+                @Override
+                public void onRequest(@NonNull Message.Request request, @NonNull Peer.ServerRequestHandler handler) {
+                    Log.i(TAG, "Receiver request : " + request.getMethod());
+                }
 
-                    @Override
-                    public void onClose() {
-                        Log.i(TAG, "WebSocket closed");
-                    }
-                });
-            }
+                @Override
+                public void onNotification(@NonNull Message.Notification notification) {
+                    Log.i(TAG, "Receiver notification : " + notification.getMethod());
+                }
+
+                @Override
+                public void onDisconnected() {
+                    Log.i(TAG, "WebSocket disconnected");
+                }
+
+                @Override
+                public void onClose() {
+                    Log.i(TAG, "WebSocket closed");
+                }
+            });
         });
     }
 
@@ -108,44 +115,10 @@ public class YXCMediaSoupRoomClient {
 
         // getRouterRtpCapabilities
         try {
-            String routerRtpCapabilities = syncRequest("getRouterRtpCapabilities", new JSONObject());
+            String routerRtpCapabilities = mPeer.syncRequest("getRouterRtpCapabilities");
             Log.i(TAG, "getRouterRtpCapabilities() result : " + routerRtpCapabilities);
         } catch (Exception e) {
             Log.w(TAG, "join room failed : " + e);
-        }
-    }
-
-
-    private Observable<String> request(String method, @NonNull JSONObject data) {
-        Logger.d(TAG, "request(), method: " + method);
-        return Observable.create(new ObservableOnSubscribe<String>() {
-            @Override
-            public void subscribe(ObservableEmitter<String> emitter) {
-                JSONObject request = Message.createRequest(method, data);
-                Log.d(TAG, String.format("request() [method : %s data : %s]", method, data.toString()));
-                if (mWebSocketTransport != null) {
-                    mWebSocketTransport.sendMessage(request);
-                }
-            }
-        });
-    }
-
-    private void request(String method, @NonNull JSONObject data, Peer.ClientRequestHandler clientRequestHandler) {
-        JSONObject request = Message.createRequest(method, data);
-        Log.d(TAG, String.format("request() [method : %s data : %s]", method, data.toString()));
-        if (mWebSocketTransport != null) {
-            mWebSocketTransport.sendMessage(request);
-        }
-    }
-
-    private String syncRequest(String method, @NonNull JSONObject data) {
-        Log.i(TAG, "syncRequest(), method : " + method);
-        try {
-            return request(method, data).blockingFirst();
-        } catch (Exception e) {
-            String message = "syncRequest method : " + method + " exception : " + e;
-            Log.w(TAG, message);
-            return null;
         }
     }
 }

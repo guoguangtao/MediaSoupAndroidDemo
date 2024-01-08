@@ -173,7 +173,6 @@ public class YXCWebSocketTransport extends AbsWebSocketTransport {
                     public void onMessage(@NonNull WebSocket webSocket, @NonNull String text) {
                         super.onMessage(webSocket, text);
 
-                        Log.i(TAG, "onMessage : " + text);
                         if (mClosed) {
                             return;
                         }
