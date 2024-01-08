@@ -6,13 +6,18 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <TextView
+    <FrameLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello World!"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        tools:ignore="MissingConstraints">
+
+        <org.webrtc.SurfaceViewRenderer
+            android:id="@+id/remote_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@color/red"
+            android:layout_gravity="center"/>
+
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
