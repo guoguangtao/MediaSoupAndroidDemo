@@ -7,6 +7,7 @@ import android.util.Log;
 import androidx.annotation.MainThread;
 
 import org.mediasoup.droid.Logger;
+import org.webrtc.AudioFrame;
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
 import org.webrtc.Camera1Enumerator;
@@ -16,6 +17,7 @@ import org.webrtc.CameraVideoCapturer;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
+import org.webrtc.LeRTCAudioListener;
 import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SurfaceTextureHelper;
@@ -73,7 +75,7 @@ public class PeerConnectionUtils {
             .setAudioDeviceModule(adm)
             .setVideoEncoderFactory(encoderFactory)
             .setVideoDecoderFactory(decoderFactory)
-            .createPeerConnectionFactory();
+            .createPeerConnectionFactory(true);
   }
 
   private AudioDeviceModule createJavaAudioDevice(Context appContext) {
@@ -122,7 +124,13 @@ public class PeerConnectionUtils {
     return JavaAudioDeviceModule.builder(appContext)
         .setAudioRecordErrorCallback(audioRecordErrorCallback)
         .setAudioTrackErrorCallback(audioTrackErrorCallback)
-        .createAudioDeviceModule();
+        .createAudioDeviceModule(true, new LeRTCAudioListener() {
+            @Override
+            public void onAudioFrame(AudioFrame audioFrame) {
+                LeRTCAudioListener.super.onAudioFrame(audioFrame);
+                Log.i(TAG, "onAudioFrame");
+            }
+        });
   }
 
   // Audio source creation.
