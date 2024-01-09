@@ -9,8 +9,11 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import org.json.JSONObject;
+import org.mediasoup.droid.Device;
 import org.mediasoup.droid.Logger;
 import org.mediasoup.droid.MediasoupClient;
+import org.mediasoup.droid.RecvTransport;
+import org.mediasoup.droid.Transport;
 import org.protoojs.droid.Message;
 import org.protoojs.droid.Peer;
 import org.protoojs.droid.ProtooException;
@@ -43,7 +46,9 @@ public class YXCMediaSoupRoomClient {
 
     private YXCPeer mPeer;
 
-//    private Protoo mProtoo;
+    private Device mMediaSoupDevice;
+
+    private Transport mReceiverTransport;
 
     public YXCMediaSoupRoomClient(Context context, String roomId, String userId
             , SurfaceViewRenderer remoteView) {
@@ -86,12 +91,12 @@ public class YXCMediaSoupRoomClient {
 
                 @Override
                 public void onRequest(@NonNull Message.Request request, @NonNull Peer.ServerRequestHandler handler) {
-                    Log.i(TAG, "Receiver request : " + request.getMethod());
+                    Log.i(TAG, "Receiver request : " + request.getMethod() + " data : " + request.getData());
                 }
 
                 @Override
                 public void onNotification(@NonNull Message.Notification notification) {
-                    Log.i(TAG, "Receiver notification : " + notification.getMethod());
+                    Log.i(TAG, "Receiver notification : " + notification.getMethod() + " data : " + notification.getData());
                 }
 
                 @Override
@@ -113,12 +118,63 @@ public class YXCMediaSoupRoomClient {
     private void joinRoom() {
         Log.i(TAG, "Join Room : " + mRoomId);
 
-        // getRouterRtpCapabilities
         try {
+            // getRouterRtpCapabilities
             String routerRtpCapabilities = mPeer.syncRequest("getRouterRtpCapabilities");
-            Log.i(TAG, "getRouterRtpCapabilities() result : " + routerRtpCapabilities);
+            // 创建 Device
+            mMediaSoupDevice = new Device();
+            mMediaSoupDevice.load(routerRtpCapabilities, null);
+            // 创建消费者(拉流)
+            createReceiverTransport();
+            // 加入房间
+            JSONObject joinRoomParameters = new JSONObject();
+            joinRoomParameters.put("displayName" , "guogt");
+            String rtpCapabilities = mMediaSoupDevice.getRtpCapabilities();
+            joinRoomParameters.put("rtpCapabilities", new JSONObject(rtpCapabilities));
+            String sctpCapabilities = mMediaSoupDevice.getSctpCapabilities();
+            joinRoomParameters.put("sctpCapabilities", sctpCapabilities);
+            String result = mPeer.syncRequest("join", joinRoomParameters);
+            Log.i(TAG, "Join room result : " + result);
         } catch (Exception e) {
             Log.w(TAG, "join room failed : " + e);
+        }
+    }
+
+    /**
+     * 创建拉流 transport
+     */
+    private void createReceiverTransport() {
+        Log.i(TAG, "createReceiverTransport");
+
+        try {
+            String method = "createWebRtcTransport";
+            JSONObject parameter = new JSONObject();
+            parameter.put("forceTcp", true);
+            parameter.put("producing" , false);
+            parameter.put("consuming", true);
+            parameter.put("sctpCapabilities", mMediaSoupDevice.getSctpCapabilities());
+            String result = mPeer.syncRequest(method, parameter);
+            Log.i(TAG, "createWebRtcTransport result : " + result);
+            JSONObject info = new JSONObject(result);
+            String id = info.optString("id");
+            String iceParameters = info.optString("iceParameters");
+            String iceCandidates = info.optString("iceCandidates");
+            String dtlsParameters = info.optString("dtlsParameters");
+            String sctpParameters = info.optString("sctpParameters");
+            mReceiverTransport = mMediaSoupDevice.createRecvTransport(new RecvTransport.Listener() {
+                @Override
+                public void onConnect(Transport transport, String dtlsParameters) {
+                    Log.i(TAG, "createRecvTransport onConnect : " + dtlsParameters);
+                }
+
+                @Override
+                public void onConnectionStateChange(Transport transport, String connectionState) {
+                    Log.i(TAG, "createRecvTransport onConnectionStateChange : " + connectionState);
+                }
+            }, id, iceParameters, iceCandidates, dtlsParameters, sctpParameters);
+
+        } catch (Exception e) {
+            Log.w(TAG, "createReceiverTransport exception : " + e);
         }
     }
 }

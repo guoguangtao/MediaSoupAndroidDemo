@@ -3,6 +3,7 @@ package com.example.mediasoupandroiddemo.lib;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 
 import org.json.JSONObject;
@@ -24,10 +25,13 @@ public class YXCPeer extends Peer {
         return syncRequest(method, new JSONObject());
     }
 
-    private String syncRequest(String method, @NonNull JSONObject data) throws ProtooException {
+    public String syncRequest(String method, @Nullable JSONObject data) throws ProtooException {
         Log.d(TAG, "syncRequest(), method: " + method);
 
         try {
+            if (data == null) {
+                data = new JSONObject();
+            }
             return request(method, data).blockingFirst();
         } catch (Throwable throwable) {
             throw new ProtooException(-1, throwable.getMessage());
