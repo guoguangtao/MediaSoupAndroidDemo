@@ -1,8 +1,13 @@
 package com.example.mediasoupandroiddemo;
+import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
+import android.view.View;
+import android.view.WindowManager;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -29,14 +34,25 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        getWindow().setFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN
+        );
+
         setContentView(R.layout.activity_main);
+
+        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        audioManager.setSpeakerphoneOn(true);
+
         mRemoteView = findViewById(R.id.remote_view);
         mEGLBase = EglBase.create();
         mRemoteView.init(mEGLBase.getEglBaseContext(), null);
         mRemoteView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT);
 
-        useMySelf();
-//        useThird();
+//        useMySelf();
+        useThird();
     }
 
     private void useMySelf() {

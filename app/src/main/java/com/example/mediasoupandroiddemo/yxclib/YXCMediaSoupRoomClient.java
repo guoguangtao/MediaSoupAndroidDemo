@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -18,6 +19,7 @@ import org.mediasoup.droid.Transport;
 import org.protoojs.droid.Message;
 import org.protoojs.droid.Peer;
 import org.webrtc.DataChannel;
+import org.webrtc.MediaStreamTrack;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoTrack;
 
@@ -46,8 +48,6 @@ public class YXCMediaSoupRoomClient {
     private Device mMediaSoupDevice;
 
     private RecvTransport mReceiverTransport;
-
-    private Consumer mConsumer;
 
     public YXCMediaSoupRoomClient(Context context, String roomId, String userId
             , SurfaceViewRenderer remoteView) {
@@ -213,17 +213,23 @@ public class YXCMediaSoupRoomClient {
             String appData = data.optString("appData");
             boolean producerPaused = data.optBoolean("producerPaused");
 
-            mConsumer = mReceiverTransport.consume(
+            Consumer consumer = mReceiverTransport.consume(
                     new Consumer.Listener() {
                         @Override
                         public void onTransportClose(Consumer consumer) {
                             Log.i(TAG, "onTransportClose for consume");
                         }
                     }, id, producerId, kind, rtpParameters, appData);
-            VideoTrack videoTrack = (VideoTrack) mConsumer.getTrack();
-            if (videoTrack != null && mRemoteView != null) {
-                videoTrack.addSink(mRemoteView);
+            MediaStreamTrack track = consumer.getTrack();
+            Log.i(TAG, "track kind : " + track.kind());
+            if (TextUtils.equals(track.kind(), "video")) {
+                VideoTrack videoTrack = (VideoTrack) consumer.getTrack();
+                if (videoTrack != null && mRemoteView != null) {
+                    Log.i(TAG, "开始渲染");
+                    videoTrack.addSink(mRemoteView);
+                }
             }
+            handler.accept();
         } catch (Exception e) {
             Log.w(TAG, "onNewConsumer exception : " + e);
         }
