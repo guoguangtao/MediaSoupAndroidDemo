@@ -1,4 +1,4 @@
-package com.example.mediasoupandroiddemo.lib;
+package com.example.mediasoupandroiddemo.yxclib;
 
 import android.util.Log;
 

@@ -1,4 +1,4 @@
-package com.example.mediasoupandroiddemo.lib;
+package com.example.mediasoupandroiddemo.yxclib;
 
 import android.content.Context;
 import android.os.Handler;
@@ -9,22 +9,19 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import org.json.JSONObject;
+import org.mediasoup.droid.Consumer;
+import org.mediasoup.droid.DataConsumer;
 import org.mediasoup.droid.Device;
-import org.mediasoup.droid.Logger;
 import org.mediasoup.droid.MediasoupClient;
 import org.mediasoup.droid.RecvTransport;
 import org.mediasoup.droid.Transport;
 import org.protoojs.droid.Message;
 import org.protoojs.droid.Peer;
-import org.protoojs.droid.ProtooException;
-import org.protoojs.droid.transports.AbsWebSocketTransport;
+import org.webrtc.DataChannel;
 import org.webrtc.SurfaceViewRenderer;
+import org.webrtc.VideoTrack;
 
 import java.util.Locale;
-
-import io.reactivex.Observable;
-import io.reactivex.ObservableEmitter;
-import io.reactivex.ObservableOnSubscribe;
 
 public class YXCMediaSoupRoomClient {
 
@@ -48,7 +45,9 @@ public class YXCMediaSoupRoomClient {
 
     private Device mMediaSoupDevice;
 
-    private Transport mReceiverTransport;
+    private RecvTransport mReceiverTransport;
+
+    private Consumer mConsumer;
 
     public YXCMediaSoupRoomClient(Context context, String roomId, String userId
             , SurfaceViewRenderer remoteView) {
@@ -92,6 +91,28 @@ public class YXCMediaSoupRoomClient {
                 @Override
                 public void onRequest(@NonNull Message.Request request, @NonNull Peer.ServerRequestHandler handler) {
                     Log.i(TAG, "Receiver request : " + request.getMethod() + " data : " + request.getData());
+                    mWorkHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                switch (request.getMethod()) {
+                                    case "newConsumer": {
+                                        onNewConsumer(request, handler);
+                                    }   break;
+                                    case "newDataConsumer": {
+                                        onNewDataConsumer(request, handler);
+                                    }   break;
+                                    default: {
+                                        String message = "unknown request.method " + request.getMethod();
+                                        handler.reject(403, message);
+                                        Log.i(TAG, message);
+                                    }
+                                }
+                            } catch (Exception e) {
+                                Log.w(TAG, "handle request error : " + e);
+                            }
+                        }
+                    });
                 }
 
                 @Override
@@ -129,6 +150,8 @@ public class YXCMediaSoupRoomClient {
             // 加入房间
             JSONObject joinRoomParameters = new JSONObject();
             joinRoomParameters.put("displayName" , "guogt");
+            // 设置设备信息
+            joinRoomParameters.put("device", DeviceInfo.androidDevice().toJSONObject());
             String rtpCapabilities = mMediaSoupDevice.getRtpCapabilities();
             joinRoomParameters.put("rtpCapabilities", new JSONObject(rtpCapabilities));
             String sctpCapabilities = mMediaSoupDevice.getSctpCapabilities();
@@ -175,6 +198,93 @@ public class YXCMediaSoupRoomClient {
 
         } catch (Exception e) {
             Log.w(TAG, "createReceiverTransport exception : " + e);
+        }
+    }
+
+    private void onNewConsumer(Message.Request request, Peer.ServerRequestHandler handler) {
+        try {
+            JSONObject data = request.getData();
+            String peerId = data.optString("peerId");
+            String producerId = data.optString("producerId");
+            String id = data.optString("id");
+            String kind = data.optString("kind");
+            String rtpParameters = data.optString("rtpParameters");
+            String type = data.optString("type");
+            String appData = data.optString("appData");
+            boolean producerPaused = data.optBoolean("producerPaused");
+
+            mConsumer = mReceiverTransport.consume(
+                    new Consumer.Listener() {
+                        @Override
+                        public void onTransportClose(Consumer consumer) {
+                            Log.i(TAG, "onTransportClose for consume");
+                        }
+                    }, id, producerId, kind, rtpParameters, appData);
+            VideoTrack videoTrack = (VideoTrack) mConsumer.getTrack();
+            if (videoTrack != null && mRemoteView != null) {
+                videoTrack.addSink(mRemoteView);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "onNewConsumer exception : " + e);
+        }
+    }
+
+    private void onNewDataConsumer(Message.Request request, Peer.ServerRequestHandler handler) {
+        try {
+            JSONObject data = request.getData();
+            String peerId = data.optString("peerId");
+            String dataProducerId = data.optString("dataProducerId");
+            String id = data.optString("id");
+            JSONObject sctpStreamParameters = data.optJSONObject("sctpStreamParameters");
+            long streamId = sctpStreamParameters.optLong("streamId");
+            String label = data.optString("label");
+            String protocol = data.optString("protocol");
+            String appData = data.optString("appData");
+
+            DataConsumer.Listener listener =
+                    new DataConsumer.Listener() {
+                        @Override
+                        public void OnConnecting(DataConsumer dataConsumer) {}
+
+                        @Override
+                        public void OnOpen(DataConsumer dataConsumer) {
+                            Log.i(TAG, "DataConsumer \"open\" event");
+                        }
+
+                        @Override
+                        public void OnClosing(DataConsumer dataConsumer) {}
+
+                        @Override
+                        public void OnClose(DataConsumer dataConsumer) {
+                            Log.w(TAG, "DataConsumer \"close\" event");
+                        }
+
+                        @Override
+                        public void OnMessage(DataConsumer dataConsumer, DataChannel.Buffer buffer) {
+                            try {
+                                JSONObject sctp = new JSONObject(dataConsumer.getSctpStreamParameters());
+                                Log.w(
+                                        TAG,
+                                        "DataConsumer \"message\" event [streamId" + sctp.optInt("streamId") + "]");
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
+
+                        @Override
+                        public void OnTransportClose(DataConsumer dataConsumer) {
+
+                        }
+                    };
+            mReceiverTransport.consumeData(
+                            listener, id, dataProducerId, streamId, label, protocol, appData);
+
+            // We are ready. Answer the protoo request.
+            handler.accept();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Log.i(TAG,"\"newDataConsumer\" request failed:", e);
         }
     }
 }
