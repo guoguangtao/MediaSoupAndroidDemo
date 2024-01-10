@@ -1,6 +1,7 @@
 package com.example.mediasoupandroiddemo.yxclib;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -97,7 +98,7 @@ public class YXCMediaSoupRoomClient {
             JSONObject joinRoomParameters = new JSONObject();
             joinRoomParameters.put("displayName" , "guogt");
             // 设置设备信息
-            joinRoomParameters.put("device", DeviceInfo.androidDevice().toJSONObject());
+            joinRoomParameters.put("device", deviceInfo());
             String rtpCapabilities = mMediaSoupDevice.getRtpCapabilities();
             joinRoomParameters.put("rtpCapabilities", new JSONObject(rtpCapabilities));
             String sctpCapabilities = mMediaSoupDevice.getSctpCapabilities();
@@ -157,12 +158,14 @@ public class YXCMediaSoupRoomClient {
                         }
                     }, id, producerId, kind, rtpParameters, appData);
             MediaStreamTrack track = consumer.getTrack();
-            Log.i(TAG, "track kind : " + track.kind());
-            if (TextUtils.equals(track.kind(), "video")) {
-                VideoTrack videoTrack = (VideoTrack) consumer.getTrack();
-                if (videoTrack != null && mRemoteView != null) {
-                    Log.i(TAG, "开始渲染");
-                    videoTrack.addSink(mRemoteView);
+            if (track != null) {
+                Log.i(TAG, "track kind : " + track.kind());
+                if (TextUtils.equals(track.kind(), MediaStreamTrack.VIDEO_TRACK_KIND)) {
+                    VideoTrack videoTrack = (VideoTrack) consumer.getTrack();
+                    if (videoTrack != null && mRemoteView != null) {
+                        Log.i(TAG, "开始渲染");
+                        videoTrack.addSink(mRemoteView);
+                    }
                 }
             }
             handler.accept();
@@ -238,7 +241,7 @@ public class YXCMediaSoupRoomClient {
                 @SuppressLint("CheckResult")
                 @Override
                 public void onConnect(Transport transport, String dtlsParameters) {
-                    Log.d(TAG, "onConnect()");
+                    Log.d(TAG, "RecvTransport.Lister onConnect()");
                     try {
                         String method = "connectWebRtcTransport";
                         JSONObject req = new JSONObject();
@@ -255,7 +258,7 @@ public class YXCMediaSoupRoomClient {
 
                 @Override
                 public void onConnectionStateChange(Transport transport, String connectionState) {
-                    Log.i(TAG, "onConnectionStateChange: " + connectionState);
+                    Log.i(TAG, "RecvTransport.Lister onConnectionStateChange: " + connectionState);
                 }
             };
 
@@ -300,7 +303,7 @@ public class YXCMediaSoupRoomClient {
 
         @Override
         public void onNotification(@NonNull Message.Notification notification) {
-            Log.i(TAG, "Receiver notification : " + notification.getMethod() + " data : " + notification.getData());
+//            Log.i(TAG, "Receiver notification : " + notification.getMethod() + " data : " + notification.getData());
         }
 
         @Override
@@ -313,4 +316,16 @@ public class YXCMediaSoupRoomClient {
             Log.i(TAG, "WebSocket closed");
         }
     };
+
+    public JSONObject deviceInfo() {
+        JSONObject deviceInfo = new JSONObject();
+        try {
+            deviceInfo.put("flag", "android");
+            deviceInfo.put("name", Build.DEVICE);
+            deviceInfo.put("version", Build.VERSION.CODENAME);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return deviceInfo;
+    }
 }

@@ -5,8 +5,6 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.example.mediasoupandroiddemo.lib.Protoo;
-
 import org.json.JSONObject;
 import org.protoojs.droid.Peer;
 import org.protoojs.droid.ProtooException;
