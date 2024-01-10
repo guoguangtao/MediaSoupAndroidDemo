@@ -138,6 +138,9 @@ public class YXCMediaSoupRoomClient {
         }
     }
 
+    /**
+     * 有新的 consumer
+     */
     private void onNewConsumer(Message.Request request, Peer.ServerRequestHandler handler) {
         try {
             JSONObject data = request.getData();
@@ -227,7 +230,6 @@ public class YXCMediaSoupRoomClient {
             mReceiverTransport.consumeData(
                             listener, id, dataProducerId, streamId, label, protocol, appData);
 
-            // We are ready. Answer the protoo request.
             handler.accept();
 
         } catch (Exception e) {
