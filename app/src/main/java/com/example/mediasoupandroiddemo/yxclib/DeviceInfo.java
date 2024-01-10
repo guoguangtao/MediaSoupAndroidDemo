@@ -1,8 +1,7 @@
 package com.example.mediasoupandroiddemo.yxclib;
 
-import static com.example.mediasoupandroiddemo.lib.JsonUtils.jsonPut;
-
 import android.os.Build;
+import android.util.Log;
 
 import org.json.JSONObject;
 
@@ -53,9 +52,13 @@ public class DeviceInfo {
 
   public JSONObject toJSONObject() {
     JSONObject deviceInfo = new JSONObject();
-    jsonPut(deviceInfo, "flag", getFlag());
-    jsonPut(deviceInfo, "name", getName());
-    jsonPut(deviceInfo, "version", getVersion());
+    try {
+      deviceInfo.put("flag", getFlag());
+      deviceInfo.put("name", getName());
+      deviceInfo.put("version", getVersion());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
     return deviceInfo;
   }
 }
