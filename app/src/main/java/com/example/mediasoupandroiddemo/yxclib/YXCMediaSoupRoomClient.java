@@ -1,5 +1,5 @@
 package com.example.mediasoupandroiddemo.yxclib;
-
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -75,61 +75,7 @@ public class YXCMediaSoupRoomClient {
         Log.i(TAG, "连接 WebSocket : " + url);
         mWorkHandler.post(() -> {
             mWebSocketTransport = new YXCWebSocketTransport(url);
-
-            mPeer = new YXCPeer(mWebSocketTransport, new Peer.Listener() {
-                @Override
-                public void onOpen() {
-                    Log.i(TAG, "WebSocket did open");
-                    mWorkHandler.post(() -> joinRoom());
-                }
-
-                @Override
-                public void onFail() {
-                    Log.i(TAG, "WebSocket failed");
-                }
-
-                @Override
-                public void onRequest(@NonNull Message.Request request, @NonNull Peer.ServerRequestHandler handler) {
-                    Log.i(TAG, "Receiver request : " + request.getMethod() + " data : " + request.getData());
-                    mWorkHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                switch (request.getMethod()) {
-                                    case "newConsumer": {
-                                        onNewConsumer(request, handler);
-                                    }   break;
-                                    case "newDataConsumer": {
-                                        onNewDataConsumer(request, handler);
-                                    }   break;
-                                    default: {
-                                        String message = "unknown request.method " + request.getMethod();
-                                        handler.reject(403, message);
-                                        Log.i(TAG, message);
-                                    }
-                                }
-                            } catch (Exception e) {
-                                Log.w(TAG, "handle request error : " + e);
-                            }
-                        }
-                    });
-                }
-
-                @Override
-                public void onNotification(@NonNull Message.Notification notification) {
-                    Log.i(TAG, "Receiver notification : " + notification.getMethod() + " data : " + notification.getData());
-                }
-
-                @Override
-                public void onDisconnected() {
-                    Log.i(TAG, "WebSocket disconnected");
-                }
-
-                @Override
-                public void onClose() {
-                    Log.i(TAG, "WebSocket closed");
-                }
-            });
+            mPeer = new YXCPeer(mWebSocketTransport, mPeerLister);
         });
     }
 
@@ -173,7 +119,7 @@ public class YXCMediaSoupRoomClient {
             String method = "createWebRtcTransport";
             JSONObject parameter = new JSONObject();
             parameter.put("forceTcp", true);
-            parameter.put("producing" , false);
+            parameter.put("producing", false);
             parameter.put("consuming", true);
             parameter.put("sctpCapabilities", mMediaSoupDevice.getSctpCapabilities());
             String result = mPeer.syncRequest(method, parameter);
@@ -184,18 +130,8 @@ public class YXCMediaSoupRoomClient {
             String iceCandidates = info.optString("iceCandidates");
             String dtlsParameters = info.optString("dtlsParameters");
             String sctpParameters = info.optString("sctpParameters");
-            mReceiverTransport = mMediaSoupDevice.createRecvTransport(new RecvTransport.Listener() {
-                @Override
-                public void onConnect(Transport transport, String dtlsParameters) {
-                    Log.i(TAG, "createRecvTransport onConnect : " + dtlsParameters);
-                }
-
-                @Override
-                public void onConnectionStateChange(Transport transport, String connectionState) {
-                    Log.i(TAG, "createRecvTransport onConnectionStateChange : " + connectionState);
-                }
-            }, id, iceParameters, iceCandidates, dtlsParameters, sctpParameters);
-
+            mReceiverTransport = mMediaSoupDevice.createRecvTransport(mRecvTransportListener, id
+                    , iceParameters, iceCandidates, dtlsParameters, sctpParameters);
         } catch (Exception e) {
             Log.w(TAG, "createReceiverTransport exception : " + e);
         }
@@ -242,7 +178,10 @@ public class YXCMediaSoupRoomClient {
             String dataProducerId = data.optString("dataProducerId");
             String id = data.optString("id");
             JSONObject sctpStreamParameters = data.optJSONObject("sctpStreamParameters");
-            long streamId = sctpStreamParameters.optLong("streamId");
+            long streamId = 0;
+            if (sctpStreamParameters != null) {
+                streamId = sctpStreamParameters.optLong("streamId");
+            }
             String label = data.optString("label");
             String protocol = data.optString("protocol");
             String appData = data.optString("appData");
@@ -293,4 +232,85 @@ public class YXCMediaSoupRoomClient {
             Log.i(TAG,"\"newDataConsumer\" request failed:", e);
         }
     }
+
+    private final RecvTransport.Listener mRecvTransportListener =
+            new RecvTransport.Listener() {
+                @SuppressLint("CheckResult")
+                @Override
+                public void onConnect(Transport transport, String dtlsParameters) {
+                    Log.d(TAG, "onConnect()");
+                    try {
+                        String method = "connectWebRtcTransport";
+                        JSONObject req = new JSONObject();
+                        req.put("transportId", transport.getId());
+                        req.put("dtlsParameters", new JSONObject(dtlsParameters));
+                        mPeer.request(method, req)
+                                .subscribe(
+                                        d -> Log.i(TAG, "connectWebRtcTransport res: " + d),
+                                        t -> Log.e(TAG, "connectWebRtcTransport for mRecvTransport failed", t));
+                    } catch (Exception e) {
+                        Log.w(TAG, "mRecvTransportListener onConnect exception : " + e);
+                    }
+                }
+
+                @Override
+                public void onConnectionStateChange(Transport transport, String connectionState) {
+                    Log.i(TAG, "onConnectionStateChange: " + connectionState);
+                }
+            };
+
+    private final Peer.Listener mPeerLister = new Peer.Listener() {
+        @Override
+        public void onOpen() {
+            Log.i(TAG, "WebSocket did open");
+            mWorkHandler.post(() -> joinRoom());
+        }
+
+        @Override
+        public void onFail() {
+            Log.i(TAG, "WebSocket failed");
+        }
+
+        @Override
+        public void onRequest(@NonNull Message.Request request, @NonNull Peer.ServerRequestHandler handler) {
+            Log.i(TAG, "Receiver request : " + request.getMethod() + " data : " + request.getData());
+            mWorkHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        switch (request.getMethod()) {
+                            case "newConsumer": {
+                                onNewConsumer(request, handler);
+                            }   break;
+                            case "newDataConsumer": {
+                                onNewDataConsumer(request, handler);
+                            }   break;
+                            default: {
+                                String message = "unknown request.method " + request.getMethod();
+                                handler.reject(403, message);
+                                Log.i(TAG, message);
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.w(TAG, "handle request error : " + e);
+                    }
+                }
+            });
+        }
+
+        @Override
+        public void onNotification(@NonNull Message.Notification notification) {
+            Log.i(TAG, "Receiver notification : " + notification.getMethod() + " data : " + notification.getData());
+        }
+
+        @Override
+        public void onDisconnected() {
+            Log.i(TAG, "WebSocket disconnected");
+        }
+
+        @Override
+        public void onClose() {
+            Log.i(TAG, "WebSocket closed");
+        }
+    };
 }

@@ -51,8 +51,8 @@ public class MainActivity extends AppCompatActivity {
         mRemoteView.init(mEGLBase.getEglBaseContext(), null);
         mRemoteView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT);
 
-//        useMySelf();
-        useThird();
+        useMySelf();
+//        useThird();
     }
 
     private void useMySelf() {

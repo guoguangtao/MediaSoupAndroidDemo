@@ -7,6 +7,7 @@ import org.json.JSONObject;
 import org.mediasoup.droid.Logger;
 import com.example.mediasoupandroiddemo.lib.socket.WebSocketTransport;
 import org.protoojs.droid.ProtooException;
+import org.protoojs.droid.transports.AbsWebSocketTransport;
 
 import io.reactivex.Observable;
 
@@ -15,11 +16,11 @@ public class Protoo extends org.protoojs.droid.Peer {
 
   private static final String TAG = "YXCProtoo";
 
-  interface RequestGenerator {
+  public interface RequestGenerator {
     void request(JSONObject req);
   }
 
-  public Protoo(@NonNull WebSocketTransport transport, @NonNull Listener listener) {
+  public Protoo(@NonNull AbsWebSocketTransport transport, @NonNull Listener listener) {
     super(transport, listener);
   }
 

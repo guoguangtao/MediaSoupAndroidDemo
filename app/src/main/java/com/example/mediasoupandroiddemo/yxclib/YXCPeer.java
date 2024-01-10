@@ -5,11 +5,12 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.example.mediasoupandroiddemo.lib.Protoo;
 
 import org.json.JSONObject;
-
 import org.protoojs.droid.Peer;
 import org.protoojs.droid.ProtooException;
+import org.protoojs.droid.transports.AbsWebSocketTransport;
 
 import io.reactivex.Observable;
 
@@ -17,7 +18,7 @@ public class YXCPeer extends Peer {
 
     private final String TAG = "YXCPeer";
 
-    public YXCPeer(@NonNull YXCWebSocketTransport transport, @NonNull Listener listener) {
+    public YXCPeer(@NonNull AbsWebSocketTransport transport, @NonNull Listener listener) {
         super(transport, listener);
     }
 
@@ -38,7 +39,7 @@ public class YXCPeer extends Peer {
         }
     }
 
-    private Observable<String> request(String method, @NonNull JSONObject data) {
+    public Observable<String> request(String method, @NonNull JSONObject data) {
         Log.d(TAG, "request(), method: " + method);
         return Observable.create(
                 emitter ->
