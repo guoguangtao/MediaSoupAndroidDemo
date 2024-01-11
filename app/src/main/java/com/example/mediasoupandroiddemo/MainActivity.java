@@ -18,8 +18,6 @@ public class MainActivity extends AppCompatActivity {
 
     private SurfaceViewRenderer mRemoteView;
 
-    private EglBase mEGLBase;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -36,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
         audioManager.setSpeakerphoneOn(true);
 
         mRemoteView = findViewById(R.id.remote_view);
-        mEGLBase = EglBase.create();
+        EglBase mEGLBase = EglBase.create();
         mRemoteView.init(mEGLBase.getEglBaseContext(), null);
         mRemoteView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT);
 
