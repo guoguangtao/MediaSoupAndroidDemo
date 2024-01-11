@@ -211,13 +211,13 @@ public class EglRenderer implements VideoSink {
       RendererCommon.GlDrawer drawer, boolean usePresentationTimeStamp) {
     synchronized (handlerLock) {
       if (renderThreadHandler != null) {
-        throw new IllegalStateException(name + "Already initialized");
+        throw new IllegalStateException(name + " Already initialized");
       }
       logD("Initializing EglRenderer");
       this.drawer = drawer;
       this.usePresentationTimeStamp = usePresentationTimeStamp;
 
-      final HandlerThread renderThread = new HandlerThread(name + "EglRenderer");
+      final HandlerThread renderThread = new HandlerThread(name + " EglRenderer");
       renderThread.start();
       renderThreadHandler =
           new HandlerWithExceptionCallback(renderThread.getLooper(), new Runnable() {
@@ -606,7 +606,13 @@ public class EglRenderer implements VideoSink {
       frame = pendingFrame;
       pendingFrame = null;
     }
+
     if (eglBase == null || !eglBase.hasSurface()) {
+      if (eglBase == null) {
+        logD("eglBase is null");
+      } else {
+        logD("eglBase.hasSurface : " + eglBase.hasSurface());
+      }
       logD("Dropping frame - No surface");
       frame.release();
       return;
@@ -780,7 +786,7 @@ public class EglRenderer implements VideoSink {
   }
 
   private void logD(String string) {
-    Logging.d(TAG, name + string);
+    Logging.d(TAG, name + " " + string);
   }
 
   private void logW(String string) {
