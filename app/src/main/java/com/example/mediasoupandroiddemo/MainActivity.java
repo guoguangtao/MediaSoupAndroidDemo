@@ -37,6 +37,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        audioManager.setMode(AudioManager.MODE_NORMAL);
         audioManager.setSpeakerphoneOn(true);
 
         mRemoteView = findViewById(R.id.remote_view);
@@ -60,6 +61,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void useMySelf() {
-        new YXCMediaSoupRoomClient(getApplicationContext(), "123456", "ggt123456", mRemoteView);
+        new YXCMediaSoupRoomClient(getApplicationContext(), "12345", "ggt123456", mRemoteView);
     }
 }
